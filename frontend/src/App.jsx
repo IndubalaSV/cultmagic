@@ -25,6 +25,48 @@ import PreferencesModal from "./components/PreferencesModal";
 import SearchBox from "./components/SearchBox";
 import toast, { Toaster } from "react-hot-toast";
 
+// Helper function to extract and clean item type
+const getCleanItemType = (item) => {
+  // Try to get type from different sources
+  let rawType = null;
+  
+  // Priority 1: types array (from Qloo search API)
+  if (item.types && Array.isArray(item.types) && item.types.length > 0) {
+    rawType = item.types[0];
+  }
+  // Priority 2: subtype field (from backend recommendations API)
+  else if (item.subtype) {
+    rawType = item.subtype;
+  }
+  // Priority 3: single type field (fallback)
+  else if (item.type) {
+    rawType = item.type;
+  }
+  // Priority 4: default to movie
+  else {
+    return 'movie';
+  }
+  
+  // Clean the type (remove URN prefixes)
+  let cleanType = rawType;
+  if (typeof rawType === 'string') {
+    // Remove urn:entity: or urn:rntity: etc
+    cleanType = rawType.replace(/^urn:[a-z]*:?/i, '').trim();
+  }
+  
+  // Validate and normalize the clean type
+  const validTypes = ['book', 'movie', 'tv_show', 'tv', 'show'];
+  if (validTypes.includes(cleanType.toLowerCase())) {
+    // Normalize tv/show to tv_show
+    if (cleanType.toLowerCase() === 'tv' || cleanType.toLowerCase() === 'show') {
+      cleanType = 'tv_show';
+    }
+    return cleanType.toLowerCase();
+  }
+  
+  return 'movie';
+};
+
 function AppContent() {
   const {
     user,
@@ -146,10 +188,13 @@ function AppContent() {
       return;
     }
 
+    // Use the clean type if provided, otherwise extract from item
+    const finalType = type || getCleanItemType(item);
+    
     const saveData = {
       item_id: item.entity_id || item.id,
       item_name: item.name || item.title,
-      item_type: type?.replace(/^urn:[a-z]*:?/i, '').trim() || 'movie',
+      item_type: finalType,
       item_image:
         item.image_url ||
         item.cover_image ||
@@ -179,13 +224,13 @@ function AppContent() {
     }
 
     try {
-  
-
       // Save to favorites (separate from preferences)
+      const finalType = type || getCleanItemType(item);
+      
       const favoriteData = {
         item_id: item.entity_id || item.id || "",
         item_name: item.name || item.title || "Unknown",
-        item_type: type?.replace(/^urn:[a-z]*:?/i, '').trim() || 'movie',
+        item_type: finalType,
         item_image:
           item.image_url ||
           item.cover_image ||
@@ -200,7 +245,7 @@ function AppContent() {
 
       if (saveResult.success) {
         toast.success(`Added ${item.name || item.title} to favorites!`);
-        
+
         // Don't refresh recommendations immediately to avoid page reset
         // Recommendations will update naturally when user searches again
       } else {
@@ -223,15 +268,8 @@ function AppContent() {
         .map((item) => item.item_id)
         .filter((id) => id); // Remove any undefined/null IDs
 
-
-
-
       // The backend handles favorited items automatically through the database
-      // We just need to trigger the recommendations endpoint
       const requestPayload = {};
-
-
-  
 
       // The backend will automatically query the database for favorited items
       const response = await axios.post(
@@ -259,7 +297,7 @@ function AppContent() {
       // Load user preferences first
       loadUserPreferences();
       // Fetch recommendations
-      fetchRecommendations();
+        fetchRecommendations();
     }
   }, [isAuthenticated, authLoading]); // Removed function dependencies to prevent infinite loop
 
@@ -663,16 +701,17 @@ function AppContent() {
                       if (!imageUrl) {
                         return (
                           <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                            <div className="text-6xl">
-                              {item.type?.replace("urn:entity:", "") === "book"
-                                ? "📚"
-                                : item.type?.replace("urn:entity:", "") ===
-                                  "movie"
-                                ? "🎬"
-                                : item.type?.replace("urn:entity:", "") ===
-                                  "tv_show"
-                                ? "📺"
-                                : "📍"}
+                                                         <div className="text-6xl">
+                               {(() => {
+                                 const itemType = getCleanItemType(item);
+                                 return itemType === "book"
+                                   ? "📚"
+                                   : itemType === "movie"
+                                   ? "🎬"
+                                   : itemType === "tv_show"
+                                   ? "📺"
+                                   : "📍";
+                               })()}
                             </div>
                           </div>
                         );
@@ -682,13 +721,10 @@ function AppContent() {
 
                     <div className="absolute top-2 right-2 flex space-x-1">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLikeItem(
-                            item,
-                            item.type?.replace("urn:entity:", "") || "movie"
-                          );
-                        }}
+                                                 onClick={(e) => {
+                           e.stopPropagation();
+                           handleLikeItem(item, getCleanItemType(item));
+                         }}
                         className={`p-2 rounded-full transition-colors ${
                           isItemSaved(item.entity_id || item.id)
                             ? "bg-red-500 text-white"
@@ -709,13 +745,10 @@ function AppContent() {
                         />
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSaveItem(
-                            item,
-                            item.type?.replace("urn:entity:", "") || "movie"
-                          );
-                        }}
+                                                 onClick={(e) => {
+                           e.stopPropagation();
+                           handleSaveItem(item, getCleanItemType(item));
+                         }}
                         className={`p-2 rounded-full transition-colors ${
                           isItemSaved(item.entity_id || item.id)
                             ? "bg-green-500 text-white"
@@ -734,15 +767,18 @@ function AppContent() {
 
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-500 uppercase font-medium">
-                        {item.type?.replace("urn:entity:", "") === "book"
-                          ? "📚 Book"
-                          : item.type?.replace("urn:entity:", "") === "movie"
-                          ? "🎬 Movie"
-                          : item.type?.replace("urn:entity:", "") === "tv_show"
-                          ? "📺 TV Show"
-                          : "📍 Place"}
-                      </span>
+                                             <span className="text-xs text-gray-500 uppercase font-medium">
+                         {(() => {
+                           const itemType = getCleanItemType(item);
+                           return itemType === "book"
+                             ? "📚 Book"
+                             : itemType === "movie"
+                             ? "🎬 Movie"
+                             : itemType === "tv_show"
+                             ? "📺 TV Show"
+                             : "📍 Place";
+                         })()}
+                       </span>
                     </div>
 
                     <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 text-lg">
@@ -1191,12 +1227,9 @@ function AppContent() {
                   {/* Action Buttons */}
                   <div className="flex space-x-2 mt-4">
                     <button
-                      onClick={() =>
-                        handleLikeItem(
-                          popupItem,
-                          popupItem.type?.replace("urn:entity:", "") || "book"
-                        )
-                      }
+                                             onClick={() =>
+                         handleLikeItem(popupItem, getCleanItemType(popupItem))
+                       }
                       className={`flex-1 p-3 rounded-lg transition-colors ${
                         isItemSaved(popupItem.entity_id || popupItem.id)
                           ? "bg-red-500 text-white"
@@ -1212,12 +1245,9 @@ function AppContent() {
                       />
                     </button>
                     <button
-                      onClick={() =>
-                        handleSaveItem(
-                          popupItem,
-                          popupItem.type?.replace("urn:entity:", "") || "book"
-                        )
-                      }
+                                             onClick={() =>
+                         handleSaveItem(popupItem, getCleanItemType(popupItem))
+                       }
                       className={`flex-1 p-3 rounded-lg transition-colors ${
                         isItemSaved(popupItem.entity_id || popupItem.id)
                           ? "bg-green-500 text-white"

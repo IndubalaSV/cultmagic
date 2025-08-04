@@ -55,10 +55,7 @@ export const SavedItemsProvider = ({ children }) => {
       const requestData = {
         item_id: item.item_id || item.entity_id || item.id,
         item_name: item.item_name || item.name || item.title,
-        item_type: (item.item_type || item.type || "book").replace(
-          "urn:entity:",
-          ""
-        ),
+        item_type: (item.item_type || item.type || "book").replace(/^urn:[a-z]*:?/i, '').trim() || 'movie',
         item_image:
           item.item_image ||
           item.image_url ||

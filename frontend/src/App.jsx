@@ -149,7 +149,7 @@ function AppContent() {
     const saveData = {
       item_id: item.entity_id || item.id,
       item_name: item.name || item.title,
-      item_type: type,
+      item_type: type?.replace(/^urn:[a-z]*:?/i, '').trim() || 'movie',
       item_image:
         item.image_url ||
         item.cover_image ||
@@ -185,7 +185,7 @@ function AppContent() {
       const favoriteData = {
         item_id: item.entity_id || item.id || "",
         item_name: item.name || item.title || "Unknown",
-        item_type: type,
+        item_type: type?.replace(/^urn:[a-z]*:?/i, '').trim() || 'movie',
         item_image:
           item.image_url ||
           item.cover_image ||

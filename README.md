@@ -1,4 +1,4 @@
-# Litflix - Book & Movie Discovery App
+# Cultmagic - Book & Movie Discovery App
 
 A modern web application for discovering personalized book and movie recommendations using the Qloo Cultural Taste API.
 
